@@ -1,22 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { View, Button, Image, TextInput, Text, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import axios from 'axios';
 
 const ReportScreen = () => {
   const [image, setImage] = useState(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState('');
   const [weather, setWeather] = useState(null);
 
-  const getLocation = async () => {
+  const getCurrentLocation = async () => {
     try {
-      const response = await axios.get('https://ipapi.co/json/');
-      const { latitude, longitude } = response.data;
-      setLocation({ latitude, longitude });
-      await fetchWeather(latitude, longitude);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error("Permissão para acessar localização não concedida.");
+        return;
+      }
+
+      const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLocation({ latitude: coords.latitude, longitude: coords.longitude });
+      await fetchAddress(coords.latitude, coords.longitude);
+      await fetchWeather(coords.latitude, coords.longitude);
     } catch (error) {
       console.error("Erro ao obter localização:", error);
+    }
+  };
+
+  const fetchAddress = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`);
+      const { display_name } = response.data;
+      setCurrentLocation(display_name.split(',')[0]); // Pega apenas a primeira parte do endereço
+    } catch (error) {
+      console.error("Erro ao obter endereço:", error);
     }
   };
 
@@ -27,12 +45,16 @@ const ReportScreen = () => {
       );
       setWeather(response.data.current_weather);
     } catch (error) {
-      console.error("Erro ao buscar clima:", error);
+      if (error.response && error.response.status === 429) {
+        console.error("Limite de requisições atingido. Tente novamente mais tarde.");
+      } else {
+        console.error("Erro ao buscar clima:", error);
+      }
     }
   };
 
   useEffect(() => {
-    getLocation();
+    getCurrentLocation(); // Chama a função para obter a localização atual do usuário
   }, []);
 
   const pickImage = async () => {
@@ -73,6 +95,11 @@ const ReportScreen = () => {
           Clima atual: {weather.temperature}°C, Vento: {weather.windspeed} km/h
         </Text>
       )}
+      {currentLocation && (
+        <Text style={styles.locationText}>
+          Localização atual: {currentLocation}
+        </Text>
+      )}
       <Button title="Enviar Denúncia" onPress={submitReport} />
     </View>
   );
@@ -81,13 +108,13 @@ const ReportScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center', // Centraliza verticalmente
-    alignItems: 'center', // Centraliza horizontalmente
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   input: {
     height: 40,
-    width: '100%', // Ajusta a largura do input
+    width: '100%',
     borderColor: 'gray',
     borderWidth: 1,
     marginBottom: 10,
@@ -101,7 +128,13 @@ const styles = StyleSheet.create({
   weatherText: {
     marginTop: 10,
     fontSize: 16,
-    textAlign: 'center', // Centraliza o texto
+    textAlign: 'center',
+  },
+  locationText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });
 
