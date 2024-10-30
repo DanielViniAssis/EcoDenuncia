@@ -1,64 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { View, Button, Image, TextInput, Text, StyleSheet } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { View, Button, TextInput, Text, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
+import { addReport, getReports } from './localDatabase'; 
 import * as Location from 'expo-location';
-import axios from 'axios';
+import emailjs from 'emailjs-com';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios'; 
 
 const ReportScreen = () => {
-  const [image, setImage] = useState(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState(null);
   const [currentLocation, setCurrentLocation] = useState('');
-  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(false); 
+  const [image, setImage] = useState(null);
+  const [email, setEmail] = useState('');
 
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.error("Permissão para acessar localização não concedida.");
+        Alert.alert('Permissão negada', 'Permissão para acessar localização não concedida.');
         return;
       }
 
       const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLocation({ latitude: coords.latitude, longitude: coords.longitude });
-      await fetchAddress(coords.latitude, coords.longitude);
-      await fetchWeather(coords.latitude, coords.longitude);
+      await fetchAddress(coords.latitude, coords.longitude); 
     } catch (error) {
       console.error("Erro ao obter localização:", error);
+      Alert.alert('Erro', 'Não foi possível obter sua localização.');
     }
   };
 
   const fetchAddress = async (latitude, longitude) => {
     try {
-      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`);
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`, {
+        headers: {
+          'User-Agent': 'Daniel/1.0 (dvs.daniel1@gmail.com)',
+        },
+      });
       const { display_name } = response.data;
-      setCurrentLocation(display_name.split(',')[0]); // Pega apenas a primeira parte do endereço
+      setCurrentLocation(display_name.split(',')[0]);
     } catch (error) {
       console.error("Erro ao obter endereço:", error);
+      Alert.alert('Erro', 'Não foi possível obter o endereço.');
     }
   };
-
-  const fetchWeather = async (latitude, longitude) => {
-    try {
-      const response = await axios.get(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
-      );
-      setWeather(response.data.current_weather);
-    } catch (error) {
-      if (error.response && error.response.status === 429) {
-        console.error("Limite de requisições atingido. Tente novamente mais tarde.");
-      } else {
-        console.error("Erro ao buscar clima:", error);
-      }
-    }
-  };
-
-  useEffect(() => {
-    getCurrentLocation(); // Chama a função para obter a localização atual do usuário
-  }, []);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão negada', 'Você precisa conceder permissão para acessar a galeria.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
@@ -66,18 +61,81 @@ const ReportScreen = () => {
 
     if (!result.cancelled) {
       setImage(result.uri);
+    } else {
+      console.log("Seleção de imagem cancelada.");
+    }
+  };
+
+  const uploadImage = async (uri) => {
+    const clientId = '17df59562cbcf48'; 
+    const formData = new FormData();
+    formData.append('image', {
+      uri: uri,
+      name: 'report-image.jpg',
+      type: 'image/jpeg',
+    });
+
+    try {
+      const response = await axios.post('https://api.imgur.com/3/image', formData, {
+        headers: {
+          Authorization: `Client-ID ${clientId}`,
+        },
+      });
+      return response.data.data.link; 
+    } catch (error) {
+      console.error("Erro ao enviar imagem:", error);
+      Alert.alert('Erro', 'Não foi possível enviar a imagem.');
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    getCurrentLocation(); 
+  }, []);
+
+  const sendEmail = async (report) => {
+    try {
+      await emailjs.send("service_dfx6yf9", "template_069iy3w", report, "GOQnxaaZTxRwazEPO");
+      Alert.alert('Sucesso', 'E-mail enviado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao enviar e-mail:', error);
+      Alert.alert('Erro', 'Não foi possível enviar o e-mail.');
     }
   };
 
   const submitReport = async () => {
-    const reportData = {
+    console.log('Descrição:', description);
+    console.log('E-mail:', email);
+    console.log('Localização:', location);
+    console.log('Imagem:', image);
+
+    if (!description || !location || !image || !email) {
+      Alert.alert('Atenção', 'Preencha todos os campos antes de enviar.');
+      return;
+    }
+
+    setLoading(true); 
+
+    const imageUrl = await uploadImage(image); 
+
+    if (!imageUrl) {
+      setLoading(false);
+      return;
+    }
+
+    const report = {
       description,
-      image,
-      location,
-      weather,
+      location: JSON.stringify(location),
+      currentLocation,
+      imageUrl,
+      email,
     };
 
-    console.log(reportData);
+    await sendEmail(report); // Envia o e-mail com os dados da denúncia
+    addReport(report); // Adiciona a denúncia ao banco de dados local
+    console.log('Relatórios atuais:', getReports()); 
+
+    setLoading(false);
   };
 
   return (
@@ -88,19 +146,24 @@ const ReportScreen = () => {
         value={description}
         onChangeText={setDescription}
       />
-      <Button title="Escolher Imagem" onPress={pickImage} />
+      <TextInput
+        style={styles.input}
+        placeholder="Seu e-mail"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <Button title="Selecionar Imagem" onPress={pickImage} />
       {image && <Image source={{ uri: image }} style={styles.image} />}
-      {weather && (
-        <Text style={styles.weatherText}>
-          Clima atual: {weather.temperature}°C, Vento: {weather.windspeed} km/h
-        </Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        <Button title="Enviar Denúncia" onPress={submitReport} />
       )}
       {currentLocation && (
         <Text style={styles.locationText}>
           Localização atual: {currentLocation}
         </Text>
       )}
-      <Button title="Enviar Denúncia" onPress={submitReport} />
     </View>
   );
 };
@@ -120,21 +183,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
   },
-  image: {
-    width: 200,
-    height: 200,
-    marginTop: 10,
-  },
-  weatherText: {
-    marginTop: 10,
-    fontSize: 16,
-    textAlign: 'center',
-  },
   locationText: {
     marginTop: 10,
     fontSize: 16,
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  image: {
+    width: 100,
+    height: 100,
+    marginTop: 10,
+    borderRadius: 8,
   },
 });
 
