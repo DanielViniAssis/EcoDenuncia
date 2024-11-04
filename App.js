@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, Button, TextInput, Text, StyleSheet, ActivityIndicator, Alert, Image, ImageBackground  } from 'react-native';
+import { View, FlatList, TextInput, Text, StyleSheet, ActivityIndicator, Alert, Image, ImageBackground, TouchableOpacity } from 'react-native';
 import { addReport, getReports } from './localDatabase'; 
 import * as Location from 'expo-location';
-import emailjs from 'emailjs-com';
-import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios'; 
+import * as ImagePicker from 'expo-image-picker';
 
 const ReportScreen = () => {
   const [description, setDescription] = useState('');
@@ -12,7 +11,6 @@ const ReportScreen = () => {
   const [currentLocation, setCurrentLocation] = useState('');
   const [loading, setLoading] = useState(false); 
   const [image, setImage] = useState(null);
-  const [email, setEmail] = useState('');
   const [reports, setReports] = useState([]);
 
   const getCurrentLocation = async () => {
@@ -47,37 +45,29 @@ const ReportScreen = () => {
     }
   };
 
-  const [uploading, setUploading] = useState(false);
-
   const pickImage = async () => {
-     try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão negada', 'Você precisa conceder permissão para acessar a galeria.');
-      return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'Você precisa conceder permissão para acessar a galeria.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0].uri;
+        setImage(selectedImage);
+      }
+    } catch (error) {
+      console.error("Erro na função pickImage:", error);
+      Alert.alert('Erro', 'Ocorreu um erro ao selecionar a imagem.');
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-      base64: false,
-    });
-
-    console.log("Resultado do ImagePicker:", result);
-
-    if (result && !result.canceled && result.assets && result.assets.length > 0) {
-      const selectedImage = result.assets[0].uri;
-      setImage(selectedImage);
-      console.log("Imagem selecionada com URI:", selectedImage);
-    } else {
-      console.log("Nenhum URI de imagem encontrado ou seleção cancelada.");
-    }
-  } catch (error) {
-    console.error("Erro na função pickImage:", error);
-    Alert.alert('Erro', 'Ocorreu um erro ao selecionar a imagem.');
-  }
-};
+  };
 
   const tirarFoto = async () => {
     try {
@@ -93,16 +83,11 @@ const ReportScreen = () => {
         quality: 1,
       });
   
-      console.log("Resultado do ImagePicker (Camera):", result);
-  
       if (result && !result.cancelled && result.uri) {
         setImage(result.uri);
-        console.log("Imagem capturada com URI:", result.uri);
-      } else {
-        console.log("Nenhum URI de imagem encontrado ou captura cancelada.");
       }
     } catch (error) {
-      console.error("Erro na função takePhoto:", error);
+      console.error("Erro na função tirarFoto:", error);
       Alert.alert('Erro', 'Ocorreu um erro ao capturar a imagem.');
     }
   };
@@ -115,14 +100,6 @@ const ReportScreen = () => {
       name: 'report-image.jpg',
       type: 'image/jpeg',
     });
-    setUploading(true);
-    formData.append('image', {
-      uri: uri,
-      name: 'report-image.jpg',
-      type: 'image/jpeg', 
-    },
-    setUploading(false),
-    ); 
 
     try {
       const response = await axios.post('https://api.imgur.com/3/image', formData, {
@@ -133,50 +110,25 @@ const ReportScreen = () => {
       });
       return response.data.data.link; 
     } catch (error) {
-      console.error("Erro ao enviar imagem:",  error.response ? error.response.data : error.message.concat(" ", stringToAppend));
+      console.error("Erro ao enviar imagem:", error);
       Alert.alert('Erro', 'Não foi possível enviar a imagem.');
       return null;
     }
   };
-  
-  
 
   useEffect(() => {
     getCurrentLocation();   
   }, []);
 
-//   const sendEmail = async (report) => {
-//     console.log('Relatório a ser enviado:', report);
-//     try {
-//         const response = await axios.post('http://192.168.15.46:8081/send-email', report);
-//         console.log('Resposta do servidor:', response.data); 
-
-//         if (response.data && response.data.message) {
-//             Alert.alert('Sucesso', response.data.message); 
-//         } else {
-//             Alert.alert('Erro', 'O servidor não retornou uma mensagem de sucesso válida.');
-//         }
-//     } catch (error) {
-//         console.error('Erro ao enviar e-mail:', error);
-//         Alert.alert('Erro', 'Não foi possível enviar o e-mail.');
-//     }
-// };
-
   const submitReport = async () => {
-    console.log('Descrição:', description);
-    // console.log('E-mail:', email);
-    console.log('Localização:', location);
-    console.log('Imagem:', image);
-    
     if (!description || !location || !image) {
       Alert.alert('Atenção', 'Preencha todos os campos antes de enviar.');
       return;
     }
-  
+
     setLoading(true); 
-  
+
     const imageUrl = await uploadImage(image); 
-  
 
     if (typeof imageUrl !== 'string') {
       Alert.alert('Erro', 'Ocorreu um erro ao enviar a imagem.');
@@ -191,12 +143,8 @@ const ReportScreen = () => {
       currentLocation: String(currentLocation) || '', 
       imageUrl: String(imageUrl) || '',   
     };
-  
-    console.log('Relatório a ser enviado:', report);
-  
+
     addReport(report); 
-    console.log('Relatórios atuais:', getReports()); 
-  
     setLoading(false);
   };
 
@@ -222,22 +170,27 @@ const ReportScreen = () => {
             value={description}
             onChangeText={setDescription}
           />
-          <Button title="Tirar Foto" onPress={tirarFoto} />
+          <TouchableOpacity style={styles.button} onPress={tirarFoto}>
+            <Text style={styles.buttonText}>Tirar Foto</Text>
+          </TouchableOpacity>
           {image && <Image source={{ uri: image }} style={styles.image} />}
-          <Button title="Selecionar Imagem" onPress={pickImage} />
+          <TouchableOpacity style={styles.button} onPress={pickImage}>
+            <Text style={styles.buttonText}>Selecionar Imagem</Text>
+          </TouchableOpacity>
           
-          {uploading && <ActivityIndicator size="large" color="#4CAF50" />}
           {loading ? (
             <ActivityIndicator size="large" color="#4CAF50" />
           ) : (
-            <Button title="Enviar Denúncia" onPress={submitReport} />
+            <TouchableOpacity style={styles.button} onPress={submitReport}>
+              <Text style={styles.buttonText}>Enviar Denúncia</Text>
+            </TouchableOpacity>
           )}
           {currentLocation && (
             <Text style={styles.locationText}>
               Localização atual: {currentLocation}
             </Text>
           )}
-          <Text style={styles.locationText}>Vizualização do banco de dados</Text>
+          <Text style={styles.locationText}>Visualização do banco de dados</Text>
           <FlatList
             data={reports}
             keyExtractor={(item) => item.id}
@@ -266,31 +219,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    
   },
   box: {
     padding: 20,
-    backgroundColor: 'rgba(9,255,29, 0.8)',
+    backgroundColor: 'rgba(144, 238, 144, 0.5)', // Verde claro translúcido
     borderRadius: 15,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 4,
     width: '90%',
+    
   },
   input: {
     height: 40,
-    borderColor: 'gray',
     borderWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Fundo branco com opacidade alta
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // cor da caixa descreva o problema
     borderRadius: 5,
+    fontWeight: 'bold', // Adicionando negrito
+
   },
   locationText: {
     marginTop: 10,
     fontSize: 16,
     textAlign: 'center',
-    color: '#333',
+    color: '#FFFFFF', // Agora é branco
+    fontWeight: 'bold', // Adicionando negrito
   },
   image: {
     width: 100,
@@ -299,10 +255,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   reportItem: {
-    backgroundColor: '#4CAF50', // Fundo verde para os itens de denúncia
+    backgroundColor: '#4CAF50',
     padding: 10,
     marginVertical: 5,
     borderRadius: 5,
+    
+  },
+  button: {
+    backgroundColor: '#4CAF50', // cor do botão
+    padding: 10, 
+    borderRadius: 5,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  buttonText: {
+    color: '#FFFFFF', // cor branca 
+    fontSize: 16, // tamanho da fonte
+    fontWeight: 'bold', // texto fica em negrito negrito
+
   },
 });
 
