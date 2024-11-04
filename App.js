@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, Button, TextInput, Text, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, FlatList, Button, TextInput, Text, StyleSheet, ActivityIndicator, Alert, Image, ImageBackground  } from 'react-native';
 import { addReport, getReports } from './localDatabase'; 
 import * as Location from 'expo-location';
 import emailjs from 'emailjs-com';
@@ -210,62 +210,87 @@ const ReportScreen = () => {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="Descreva o problema"
-        value={description}
-        onChangeText={setDescription}
-      />
-      <Button title="Tirar Foto" onPress={tirarFoto} />
-      <Button title="Selecionar Imagem" onPress={pickImage} />
-      {image && <Image source={{ uri: image }} style={styles.image} />}
-      {uploading && <ActivityIndicator size="large" color="#0000ff" />}
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <Button title="Enviar Denúncia" onPress={submitReport} />
-      )}
-      {currentLocation && (
-        <Text style={styles.locationText}>
-          Localização atual: {currentLocation}
-        </Text>
-      )}
-      <FlatList
-        data={reports}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.reportItem}>
-            <Text>{item.description}</Text>
-            <Text>{item.currentLocation}</Text>
-            <Text>{item.imageUrl}</Text>
-          </View>
-        )}
-      />
-    </View>
+    <ImageBackground
+      source={{ uri: 'https://tse1.mm.bing.net/th?id=OIG3.nS7nK4g9Cp_1yf4gzYR_&pid=ImgGn' }} // Use uma imagem de natureza ou floresta
+      style={styles.background}
+    >
+      <View style={styles.container}>
+        <View style={styles.box}>
+          <TextInput
+            style={styles.input}
+            placeholder="Descreva o problema"
+            value={description}
+            onChangeText={setDescription}
+          />
+          <Button title="Tirar Foto" onPress={tirarFoto} />
+          {image && <Image source={{ uri: image }} style={styles.image} />}
+          <Button title="Selecionar Imagem" onPress={pickImage} />
+          
+          {uploading && <ActivityIndicator size="large" color="#4CAF50" />}
+          {loading ? (
+            <ActivityIndicator size="large" color="#4CAF50" />
+          ) : (
+            <Button title="Enviar Denúncia" onPress={submitReport} />
+          )}
+          {currentLocation && (
+            <Text style={styles.locationText}>
+              Localização atual: {currentLocation}
+            </Text>
+          )}
+          <Text style={styles.locationText}>Vizualização do banco de dados</Text>
+          <FlatList
+            data={reports}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.reportItem}>
+                <Text>{item.description}</Text>
+                <Text>{item.currentLocation}</Text>
+                <Text>{item.imageUrl}</Text>
+              </View>
+            )}
+          />
+        </View>
+      </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  box: {
+    padding: 20,
+    backgroundColor: 'rgba(9,255,29, 0.8)',
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    width: '90%',
+  },
   input: {
     height: 40,
-    width: '100%',
     borderColor: 'gray',
     borderWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Fundo branco com opacidade alta
+    borderRadius: 5,
   },
   locationText: {
     marginTop: 10,
     fontSize: 16,
     textAlign: 'center',
-    fontWeight: 'bold',
+    color: '#333',
   },
   image: {
     width: 100,
@@ -274,9 +299,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   reportItem: {
-    padding: 1,
-    borderBottomWidth: 0,
-    borderBottomColor: '#ccc',
+    backgroundColor: '#4CAF50', // Fundo verde para os itens de denúncia
+    padding: 10,
+    marginVertical: 5,
+    borderRadius: 5,
   },
 });
 
