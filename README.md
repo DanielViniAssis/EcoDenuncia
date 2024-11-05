@@ -23,7 +23,7 @@ npx expo start
 ```
 
 ## Tecnologias utilizadas
-- JavaScript: ECMAScript 2021
+- JavaScript
 - NodeJS: v20.9.0
 - Expo: 6.3.10
 ### Bibliotecas
