@@ -13,6 +13,7 @@ const ReportScreen = () => {
   const [image, setImage] = useState(null);
   const [reports, setReports] = useState([]);
 
+  // pegando a  localização do usúario ao ele entrar no app e permitir
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -27,9 +28,11 @@ const ReportScreen = () => {
     } catch (error) {
       console.error("Erro ao obter localização:", error);
       Alert.alert('Erro', 'Não foi possível obter sua localização.');
+            // Exibe um alerta se tiver um erro ao obter a localização.
     }
   };
 
+  // Função para converter latitude e longitude em um texto de endereço.
   const fetchAddress = async (latitude, longitude) => {
     try {
       const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`, {
@@ -45,6 +48,7 @@ const ReportScreen = () => {
     }
   };
 
+  // pegando a imagem que o usuário vai inserir
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -69,6 +73,7 @@ const ReportScreen = () => {
     }
   };
 
+  // permissão para tirar foto falta verificar como corrigir o erro ao subir a foto
   const tirarFoto = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -92,6 +97,7 @@ const ReportScreen = () => {
     }
   };
 
+  // Subindo a imagem para o imgur
   const uploadImage = async (uri) => {
     const clientId = '17df59562cbcf48'; 
     const formData = new FormData();
@@ -102,6 +108,7 @@ const ReportScreen = () => {
     });
 
     try {
+      // API ONDE ESTAMOS SUBINDO A IMAGEM PARA ARMAZENAR
       const response = await axios.post('https://api.imgur.com/3/image', formData, {
         headers: {
           Authorization: `Client-ID ${clientId}`,
@@ -120,6 +127,7 @@ const ReportScreen = () => {
     getCurrentLocation();   
   }, []);
 
+  // Subir todos os dados após preencher tudo
   const submitReport = async () => {
     if (!description || !location || !image) {
       Alert.alert('Atenção', 'Preencha todos os campos antes de enviar.');
@@ -136,6 +144,7 @@ const ReportScreen = () => {
       return;
     }
   
+    // Dados do report
     const report = {
       id: new Date().getTime().toString(),
       description: String(description) || '', 
@@ -159,25 +168,30 @@ const ReportScreen = () => {
 
   return (
     <ImageBackground
-      source={{ uri: 'https://tse1.mm.bing.net/th?id=OIG3.nS7nK4g9Cp_1yf4gzYR_&pid=ImgGn' }} // Use uma imagem de natureza ou floresta
+      source={{ uri: 'https://tse1.mm.bing.net/th?id=OIG3.nS7nK4g9Cp_1yf4gzYR_&pid=ImgGn' }} // Imagem de fundo
       style={styles.background}
     >
       <View style={styles.container}>
         <View style={styles.box}>
+          {/* Realizar o input do problema */}
           <TextInput
             style={styles.input}
             placeholder="Descreva o problema"
             value={description}
             onChangeText={setDescription}
           />
+          {/* Funçao para tirar uma foto porém precisamos corrigir */}
           <TouchableOpacity style={styles.button} onPress={tirarFoto}>
             <Text style={styles.buttonText}>Tirar Foto</Text>
           </TouchableOpacity>
+
+          {/* Botão para selecionar a imagem da denuncia acho que corrigi */}
           {image && <Image source={{ uri: image }} style={styles.image} />}
           <TouchableOpacity style={styles.button} onPress={pickImage}>
             <Text style={styles.buttonText}>Selecionar Imagem</Text>
           </TouchableOpacity>
           
+          {/* Botão para enviar a denuncia */}
           {loading ? (
             <ActivityIndicator size="large" color="#4CAF50" />
           ) : (
@@ -185,11 +199,15 @@ const ReportScreen = () => {
               <Text style={styles.buttonText}>Enviar Denúncia</Text>
             </TouchableOpacity>
           )}
+
+          {/* Localização do usúario */}
           {currentLocation && (
             <Text style={styles.locationText}>
               Localização atual: {currentLocation}
             </Text>
           )}
+
+          {/* Criei isso só para mostrarmos para o professor o banco de dados funcionando */}
           <Text style={styles.locationText}>Visualização do banco de dados</Text>
           <FlatList
             data={reports}
@@ -208,6 +226,7 @@ const ReportScreen = () => {
   );
 };
 
+// Toda a estilização
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -236,17 +255,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // cor da caixa descreva o problema
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // cor da caixa do descreva o problema
     borderRadius: 5,
-    fontWeight: 'bold', // Adicionando negrito
+    fontWeight: 'bold', 
 
   },
   locationText: {
     marginTop: 10,
     fontSize: 16,
     textAlign: 'center',
-    color: '#FFFFFF', // Agora é branco
-    fontWeight: 'bold', // Adicionando negrito
+    color: '#FFFFFF', 
+    fontWeight: 'bold', 
   },
   image: {
     width: 100,
@@ -274,6 +293,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold', // texto fica em negrito negrito
 
   },
+  locationText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#FFFFFF', // Cor principal do texto
+    fontWeight: 'bold', // Negrito
+    textShadowColor: '#000000', // Cor da borda
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 1,
+},
 });
 
 export default ReportScreen;
